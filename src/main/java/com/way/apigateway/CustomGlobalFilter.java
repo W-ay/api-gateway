@@ -1,8 +1,11 @@
 package com.way.apigateway;
 
+import cn.hutool.json.JSON;
 import com.alibaba.nacos.common.model.RestResult;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.way.dubbointerface.common.ErrorCode;
+import com.way.dubbointerface.common.ResultUtils;
 import com.way.dubbointerface.model.entity.InterfaceInfo;
 import com.way.dubbointerface.model.entity.User;
 import com.way.dubbointerface.service.InnerInterfaceInfoService;
@@ -148,11 +151,23 @@ public class CustomGlobalFilter implements GlobalFilter, Ordered {
         InterfaceInfo interfaceInfo = interfaceInfoService.getInterfaceInfo(url, method);
         if (interfaceInfo==null){
 //            return handleNoAuth(response);
-            return handleReqErr(response,"接口不存在");
+            return handleReqErr(response,ResultUtils.error(ErrorCode.OPERATION_ERROR, "接口不存在"));
+//            return handleReqErr(response,"\"{\"code\":50001,\"data\":null,\"message\":\"调用次数不足\"}\"");
         }
         Long userid = invokeUser.getId();
         Long id = interfaceInfo.getId();
         //todo 检测是否有足够请求次数
+        if (!innerUserInterfaceInfoService.verifyCount(interfaceInfo.getId(), userid)) {
+//            ObjectMapper mapper = new ObjectMapper();
+//            String msg;
+//            try {
+//                msg = mapper.writeValueAsString(ResultUtils.error(ErrorCode.OPERATION_ERROR, "调用次数不足"));
+//            } catch (JsonProcessingException e) {
+//                throw new RuntimeException(e);
+//            }
+//            return handleReqErr(response, msg);
+            return handleReqErr(response, ResultUtils.error(ErrorCode.OPERATION_ERROR, "调用次数不足"));
+        }
         //5.请求转发，调用模拟接口
         return handleResponse(exchange, chain,id,userid);
 
@@ -217,9 +232,19 @@ public class CustomGlobalFilter implements GlobalFilter, Ordered {
     public Mono<Void> handleNoAuth(ServerHttpResponse response) {
         response.setStatusCode(HttpStatus.FORBIDDEN);
         log.info("无权访问");
-        return response.setComplete();
+        response.getHeaders().add("Content-Type", "application/json;charset=utf-8");
+        DataBufferFactory bufferFactory = response.bufferFactory();
+        ObjectMapper objectMapper = new ObjectMapper();
+        DataBuffer wrap = null;
+        try {
+            wrap = bufferFactory.wrap(objectMapper.writeValueAsBytes(ResultUtils.error(ErrorCode.NO_AUTH_ERROR,"无权访问")));
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException(e);
+        }
+        DataBuffer finalWrap = wrap;
+        return response.writeWith(Mono.fromSupplier(() -> finalWrap));
     }
-    public Mono<Void> handleReqErr(ServerHttpResponse response,String msg) {
+    public Mono<Void> handleReqErr(ServerHttpResponse response,Object msg) {
         response.setStatusCode(HttpStatus.LOCKED);
 //        response.headers().set("Content-Type", "application/json;charset=utf-8");
         response.getHeaders().add("Content-Type", "application/json;charset=utf-8");
