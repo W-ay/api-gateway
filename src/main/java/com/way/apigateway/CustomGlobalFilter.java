@@ -1,5 +1,8 @@
 package com.way.apigateway;
 
+import com.alibaba.nacos.common.model.RestResult;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.way.dubbointerface.model.entity.InterfaceInfo;
 import com.way.dubbointerface.model.entity.User;
 import com.way.dubbointerface.service.InnerInterfaceInfoService;
@@ -40,7 +43,7 @@ import java.util.List;
  */
 @Slf4j
 public class CustomGlobalFilter implements GlobalFilter, Ordered {
-    public static final List<String> WHILT_LIST = Arrays.asList("127.0.0.1");
+    public static final List<String> WHILT_LIST = Arrays.asList("127.0.0.1","0:0:0:0:0:0:0:1");
     @DubboReference
     private InnerUserService innerUserService;
     @DubboReference
@@ -49,7 +52,7 @@ public class CustomGlobalFilter implements GlobalFilter, Ordered {
     private InnerUserInterfaceInfoService innerUserInterfaceInfoService;
     @DubboReference
     private InnerNonceService innerNonceService;
-    private static final String HOST = "http://localhost:8123";
+    private static final String HOST = "http://localhost:8090";
     private static final String GET_NONCE_PATH= "/api/getnonce";
 
     @Override
@@ -62,29 +65,29 @@ public class CustomGlobalFilter implements GlobalFilter, Ordered {
         URI uri = request.getURI();
         RequestPath path = request.getPath();
         //获取随机数的单独控制
-        if (path.equals(GET_NONCE_PATH)){
-            HttpHeaders headers = request.getHeaders();
-            String accessKey = headers.getFirst("accessKey");
-            String timestamp = headers.getFirst("timestamp");
-            String sign = headers.getFirst("sign");
-            //todo 判断时间戳超时
-            if (StringUtils.isAnyBlank(accessKey, timestamp, sign)) {
-                return handleNoAuth(response);
-            }
-            User invokeUser = innerUserService.getInvokeUser(accessKey);
-            if (invokeUser == null) {
-                return handleNoAuth(response);
-            }
-            HashMap<String, String> headerMap = new HashMap<>();
-            headerMap.put("accessKey", accessKey);
-            headerMap.put("timestamp", timestamp);
-            String newSign = SignUtils.getSign(headerMap, invokeUser.getSecretKey(), null);
-            if (sign == null || !newSign.equals(sign)) {
-                return handleNoAuth(response);
-            }
-            //todo 随机数
-            return chain.filter(exchange);
-        }
+//        if (path.equals(GET_NONCE_PATH)){
+//            HttpHeaders headers = request.getHeaders();
+//            String accessKey = headers.getFirst("accessKey");
+//            String timestamp = headers.getFirst("timestamp");
+//            String sign = headers.getFirst("sign");
+//            //todo 判断时间戳超时
+//            if (StringUtils.isAnyBlank(accessKey, timestamp, sign)) {
+//                return handleNoAuth(response);
+//            }
+//            User invokeUser = innerUserService.getInvokeUser(accessKey);
+//            if (invokeUser == null) {
+//                return handleNoAuth(response);
+//            }
+//            HashMap<String, String> headerMap = new HashMap<>();
+//            headerMap.put("accessKey", accessKey);
+//            headerMap.put("timestamp", timestamp);
+//            String newSign = SignUtils.getSign(headerMap, invokeUser.getSecretKey(), null);
+//            if (sign == null || !newSign.equals(sign)) {
+//                return handleNoAuth(response);
+//            }
+//            //todo 随机数
+//            return chain.filter(exchange);
+//        }
         String url = HOST + path;
         String method = request.getMethodValue();
         log.info("请求网关路径：{}", uri);
@@ -92,7 +95,10 @@ public class CustomGlobalFilter implements GlobalFilter, Ordered {
         log.info("请求方法：{}", method);
         log.info("请求参数：{}", request.getQueryParams());
         log.info("本地地址：{}", request.getLocalAddress());
-        log.info("本地地址：{}", request.getBody());
+        log.info("请求体：{}", request.getBody());
+        log.info("cookies：{}", request.getCookies());
+        log.info("cookies：{}", request.getHeaders());
+
         InetSocketAddress remoteAddress = request.getRemoteAddress();
         String hostAddress = request.getRemoteAddress().getAddress().getHostAddress();
         log.info("请求来源地址：{}", hostAddress);
@@ -103,41 +109,50 @@ public class CustomGlobalFilter implements GlobalFilter, Ordered {
             return handleNoAuth(response);
         }
 
-        //3.用户鉴权
+//        //3.用户鉴权
         HttpHeaders headers = request.getHeaders();
         String accessKey = headers.getFirst("accessKey");
-        String nonce = headers.getFirst("nonce");
-        String timestamp = headers.getFirst("timestamp");
-        String sign = headers.getFirst("sign");
-        if (StringUtils.isAnyBlank(accessKey, nonce, timestamp, sign)) {
+        String secretKey = headers.getFirst("secretKey");
+//        String nonce = headers.getFirst("nonce");
+//        String timestamp = headers.getFirst("timestamp");
+//        String sign = headers.getFirst("sign");
+//        if (StringUtils.isAnyBlank(accessKey, nonce, timestamp, sign)) {
+//            return handleNoAuth(response);
+//        }
+        if (StringUtils.isAnyBlank(accessKey)) {
             return handleNoAuth(response);
         }
-        //从数据库拿secretKey,
+//        //从数据库拿secretKey,
         User invokeUser = innerUserService.getInvokeUser(accessKey);
         if (invokeUser == null) {
             return handleNoAuth(response);
         }
-        //TODO  从redis判断是否存在nonce，执行后删除
-        if (!innerNonceService.removeNonce(nonce)) {
+        if ( !StringUtils.equals(invokeUser.getSecretKey(),secretKey)){
             return handleNoAuth(response);
         }
-        String secretKey = invokeUser.getSecretKey();
-        HashMap<String, String> headerMap = new HashMap<>();
-        headerMap.put("accessKey", accessKey);
-        headerMap.put("nonce", nonce);
-        headerMap.put("timestamp", timestamp);
-        String newSign = SignUtils.getSign(headerMap, secretKey, null);
-        if (sign == null || !newSign.equals(sign)) {
-            return handleNoAuth(response);
-        }
+//        //TODO  从redis判断是否存在nonce，执行后删除
+//        if (!innerNonceService.removeNonce(nonce)) {
+//            return handleNoAuth(response);
+//        }
+//        String secretKey = invokeUser.getSecretKey();
+//        HashMap<String, String> headerMap = new HashMap<>();
+//        headerMap.put("accessKey", accessKey);
+//        headerMap.put("nonce", nonce);
+//        headerMap.put("timestamp", timestamp);
+//        String newSign = SignUtils.getSign(headerMap, secretKey, null);
+//        if (sign == null || !newSign.equals(sign)) {
+//            return handleNoAuth(response);
+//        }
 
         //4.检测接口是否存在
         InterfaceInfo interfaceInfo = interfaceInfoService.getInterfaceInfo(url, method);
         if (interfaceInfo==null){
-            return handleNoAuth(response);
+//            return handleNoAuth(response);
+            return handleReqErr(response,"接口不存在");
         }
         Long userid = invokeUser.getId();
         Long id = interfaceInfo.getId();
+        //todo 检测是否有足够请求次数
         //5.请求转发，调用模拟接口
         return handleResponse(exchange, chain,id,userid);
 
@@ -203,6 +218,24 @@ public class CustomGlobalFilter implements GlobalFilter, Ordered {
         response.setStatusCode(HttpStatus.FORBIDDEN);
         log.info("无权访问");
         return response.setComplete();
+    }
+    public Mono<Void> handleReqErr(ServerHttpResponse response,String msg) {
+        response.setStatusCode(HttpStatus.LOCKED);
+//        response.headers().set("Content-Type", "application/json;charset=utf-8");
+        response.getHeaders().add("Content-Type", "application/json;charset=utf-8");
+        DataBufferFactory bufferFactory = response.bufferFactory();
+        ObjectMapper objectMapper = new ObjectMapper();
+        DataBuffer wrap = null;
+        try {
+            wrap = bufferFactory.wrap(objectMapper.writeValueAsBytes(msg));
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException(e);
+        }
+        DataBuffer finalWrap = wrap;
+        return response.writeWith(Mono.fromSupplier(() -> finalWrap));
+//        response.setStatusCode(HttpStatus.BAD_REQUEST);
+//        log.info(msg);
+//        return response.setComplete();
     }
 
     @Override
