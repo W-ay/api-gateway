@@ -17,6 +17,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.dubbo.config.annotation.DubboReference;
 import org.reactivestreams.Publisher;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.core.Ordered;
@@ -30,6 +31,8 @@ import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.http.server.reactive.ServerHttpResponse;
 import org.springframework.http.server.reactive.ServerHttpResponseDecorator;
 import org.springframework.web.server.ServerWebExchange;
+import org.springframework.web.util.UriComponents;
+import org.springframework.web.util.UriComponentsBuilder;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -56,6 +59,9 @@ public class CustomGlobalFilter implements GlobalFilter, Ordered {
     @DubboReference
     private InnerNonceService innerNonceService;
     private static final String HOST = "http://localhost:8090";
+
+    @Value("${ini.gateway.api-host}")
+    private String API_HOST;
     private static final String GET_NONCE_PATH= "/api/getnonce";
 
     @Override
@@ -91,10 +97,11 @@ public class CustomGlobalFilter implements GlobalFilter, Ordered {
 //            //todo 随机数
 //            return chain.filter(exchange);
 //        }
-        String url = HOST + path;
+//        String url = API_HOST + path;
         String method = request.getMethodValue();
+
         log.info("请求网关路径：{}", uri);
-        log.info("请求目的路径：{}", url);
+//        log.info("请求目的路径：{}", url);
         log.info("请求方法：{}", method);
         log.info("请求参数：{}", request.getQueryParams());
         log.info("本地地址：{}", request.getLocalAddress());
@@ -106,11 +113,21 @@ public class CustomGlobalFilter implements GlobalFilter, Ordered {
         String hostAddress = request.getRemoteAddress().getAddress().getHostAddress();
         log.info("请求来源地址：{}", hostAddress);
 
-        //2.黑白名单
-        if (!WHILT_LIST.contains(hostAddress)) {
-            log.info("不在白名单里：：{}", hostAddress);
-            return handleNoAuth(response);
+        //处理请求地址
+        String scheme = uri.getScheme();
+        String host = uri.getHost();
+        String path2 = uri.getPath();
+        int port = uri.getPort();
+        String requestURL = scheme+"://"+host+":"+ port +path;
+        if (path2.charAt(path2.length()-1) != '/'){
+            requestURL += '/';
         }
+        log.info("请求链接：{}",requestURL);
+//        //2.黑白名单
+//        if (!WHILT_LIST.contains(hostAddress)) {
+//            log.info("不在白名单里：：{}", hostAddress);
+//            return handleNoAuth(response);
+//        }
 
 //        //3.用户鉴权
         HttpHeaders headers = request.getHeaders();
@@ -148,7 +165,7 @@ public class CustomGlobalFilter implements GlobalFilter, Ordered {
 //        }
 
         //4.检测接口是否存在
-        InterfaceInfo interfaceInfo = interfaceInfoService.getInterfaceInfo(url, method);
+        InterfaceInfo interfaceInfo = interfaceInfoService.getInterfaceInfo(requestURL, method);
         if (interfaceInfo==null){
 //            return handleNoAuth(response);
             return handleReqErr(response,ResultUtils.error(ErrorCode.OPERATION_ERROR, "接口不存在"));

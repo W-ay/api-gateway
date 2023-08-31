@@ -24,3 +24,7 @@ dubbo:
     port: -1
   registry:
     address: nacos://8.130.76.170:8848
+
+ini:
+  gateway:
+    api-host: http://8.130.76.170:8090
