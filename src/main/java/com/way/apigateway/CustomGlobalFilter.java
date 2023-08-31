@@ -166,7 +166,7 @@ public class CustomGlobalFilter implements GlobalFilter, Ordered {
 //                throw new RuntimeException(e);
 //            }
 //            return handleReqErr(response, msg);
-            return handleReqErr(response, ResultUtils.error(ErrorCode.OPERATION_ERROR, "调用次数不足"));
+            return handleReqErr(response, ResultUtils.error(ErrorCode.OPERATION_ERROR, "调用次数不足"),HttpStatus.PAYMENT_REQUIRED);
         }
         //5.请求转发，调用模拟接口
         return handleResponse(exchange, chain,id,userid);
@@ -244,8 +244,8 @@ public class CustomGlobalFilter implements GlobalFilter, Ordered {
         DataBuffer finalWrap = wrap;
         return response.writeWith(Mono.fromSupplier(() -> finalWrap));
     }
-    public Mono<Void> handleReqErr(ServerHttpResponse response,Object msg) {
-        response.setStatusCode(HttpStatus.LOCKED);
+    public Mono<Void> handleReqErr(ServerHttpResponse response,Object msg,HttpStatus status) {
+        response.setStatusCode(status);
 //        response.headers().set("Content-Type", "application/json;charset=utf-8");
         response.getHeaders().add("Content-Type", "application/json;charset=utf-8");
         DataBufferFactory bufferFactory = response.bufferFactory();
@@ -258,9 +258,9 @@ public class CustomGlobalFilter implements GlobalFilter, Ordered {
         }
         DataBuffer finalWrap = wrap;
         return response.writeWith(Mono.fromSupplier(() -> finalWrap));
-//        response.setStatusCode(HttpStatus.BAD_REQUEST);
-//        log.info(msg);
-//        return response.setComplete();
+    }
+    public Mono<Void> handleReqErr(ServerHttpResponse response,Object msg) {
+        return handleReqErr(response,msg,HttpStatus.LOCKED);
     }
 
     @Override

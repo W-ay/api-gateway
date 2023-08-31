@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <configuration debug="false">
-    <property name="LOG_HOME" value="logs/backend"/>
+    <property name="LOG_HOME" value="logs/gateway"/>
     <property name="CONSOLE_LOG_PATTERN"
               value="%red(%date{yyyy-MM-dd HH:mm:ss}) %highlight(%-5level) %red([%thread]) %boldMagenta(%logger{50}) %cyan(%msg%n)"
     />
