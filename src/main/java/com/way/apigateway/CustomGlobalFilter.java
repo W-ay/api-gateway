@@ -24,12 +24,15 @@ import org.springframework.core.Ordered;
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.core.io.buffer.DataBufferFactory;
 import org.springframework.core.io.buffer.DataBufferUtils;
+import org.springframework.http.HttpCookie;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseCookie;
 import org.springframework.http.server.RequestPath;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.http.server.reactive.ServerHttpResponse;
 import org.springframework.http.server.reactive.ServerHttpResponseDecorator;
+import org.springframework.util.MultiValueMap;
 import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.util.UriComponents;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -193,6 +196,14 @@ public class CustomGlobalFilter implements GlobalFilter, Ordered {
 
     private Mono<Void> handleResponse(ServerWebExchange exchange, GatewayFilterChain chain,long interfaceInfoId,long userId) {
         try {
+            String cookieName = "fromWhere";
+            String cookieValue = "api-gateway";
+            String cookieString = cookieName + "=" + cookieValue;
+
+            // 修改请求，添加 Cookie
+            exchange = exchange.mutate()
+                    .request(request -> request.headers(headers -> headers.add("Cookie", cookieString)))
+                    .build();
             ServerHttpResponse originalResponse = exchange.getResponse();
             DataBufferFactory bufferFactory = originalResponse.bufferFactory();
             HttpStatus statusCode = originalResponse.getStatusCode();
