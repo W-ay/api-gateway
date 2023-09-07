@@ -12,7 +12,6 @@ import com.way.dubbointerface.service.InnerInterfaceInfoService;
 import com.way.dubbointerface.service.InnerNonceService;
 import com.way.dubbointerface.service.InnerUserInterfaceInfoService;
 import com.way.dubbointerface.service.InnerUserService;
-import com.way.dubbointerface.utils.SignUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.dubbo.config.annotation.DubboReference;
